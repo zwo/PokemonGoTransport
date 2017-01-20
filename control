@@ -3,7 +3,8 @@ Name: PokemonGoTransport
 Depends: mobilesubstrate
 Version: 0.0.1
 Architecture: iphoneos-arm
-Description: An awesome MobileSubstrate tweak!
+Description: tweak of pokemon go, that allows users to transport to anywhere and move with finger tap on the screen.
 Maintainer: zwo
-Author: zwo
+Author: Weiou ZHOU
 Section: Tweaks
+Depiction: https://github.com/zwo/PokemonGoTransport
