@@ -1,3 +1,5 @@
+export THEOS_DEVICE_IP = 192.168.2.12
+
 include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = PokemonGoTransport
