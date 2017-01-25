@@ -1,7 +1,7 @@
 Package: net.kerdis.pokemongotransport
 Name: PokemonGoTransport
 Depends: mobilesubstrate
-Version: 0.0.1
+Version: 0.0.2
 Architecture: iphoneos-arm
 Description: tweak of pokemon go, that allows users to transport to anywhere and move with finger tap on the screen.
 Maintainer: zwo

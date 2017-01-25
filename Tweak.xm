@@ -1,338 +1,5 @@
 #import <CoreLocation/CoreLocation.h>
 #import <UIKit/UIKit.h>
-#import <QuartzCore/QuartzCore.h>
-
-////////------ External ------//////
-//
-//  RSPlayPauseButton.h
-//
-//  Created by Raphael Schaad on 2014-03-22.
-//  This is free and unencumbered software released into the public domain.
-//
-
-
-#import <UIKit/UIKit.h>
-
-
-#define RSPlayPauseButtonAnimationStyleSplit 0 // Default
-#define RSPlayPauseButtonAnimationStyleSplitAndRotate 1
-
-
-
-//
-//  Displays a  ⃝ with either the ► (play) or ❚❚ (pause) icon and nicely morphs between the two states.
-//  It's targeted for iOS 7+ and is tintColor-aware.
-//
-@interface RSPlayPauseButton : UIControl
-
-// State
-@property (nonatomic, assign, getter = isPaused) BOOL paused; // Default is `YES`; changing this way is not animated
-- (void)setPaused:(BOOL)paused animated:(BOOL)animated;
-
-// Style
-@property (nonatomic, assign) int animationStyle; // Default is `RSPlayPauseButtonAnimationStyleSplit`
-
-@end
-
-//
-//  RSPlayPauseButton.m
-//
-//  Created by Raphael Schaad https://github.com/raphaelschaad on 2014-03-22.
-//  This is free and unencumbered software released into the public domain.
-//
-
-
-#include <tgmath.h> // type generic math, yo: http://en.wikipedia.org/wiki/Tgmath.h#tgmath.h
-
-
-static const CGFloat kScale = 1.0;
-static const CGFloat kBorderSize = 32.0 * kScale;
-static const CGFloat kBorderWidth = 0.0 * kScale;
-static const CGFloat kSize = kBorderSize + kBorderWidth; // The total size is the border size + 2x half the border width.
-static const CGFloat kPauseLineWidth = 4.0 * kScale;
-static const CGFloat kPauseLineHeight = 15.0 * kScale;
-static const CGFloat kPauseLinesSpace = 4.0 * kScale;
-static const CGFloat kPlayTriangleOffsetX = 2.0 * kScale;
-static const CGFloat kPlayTriangleTipOffsetX = 2.0 * kScale;
-
-static const CGPoint p1 = {0.0, 0.0};                          // line 1, top left
-static const CGPoint p2 = {kPauseLineWidth, 0.0};              // line 1, top right
-static const CGPoint p3 = {kPauseLineWidth, kPauseLineHeight}; // line 1, bottom right
-static const CGPoint p4 = {0.0, kPauseLineHeight};             // line 1, bottom left
-
-static const CGPoint p5 = {kPauseLineWidth + kPauseLinesSpace, 0.0};                                // line 2, top left
-static const CGPoint p6 = {kPauseLineWidth + kPauseLinesSpace + kPauseLineWidth, 0.0};              // line 2, top right
-static const CGPoint p7 = {kPauseLineWidth + kPauseLinesSpace + kPauseLineWidth, kPauseLineHeight}; // line 2, bottom right
-static const CGPoint p8 = {kPauseLineWidth + kPauseLinesSpace, kPauseLineHeight};                   // line 2, bottom left
-
-
-@interface RSPlayPauseButton ()
-
-@property (nonatomic, strong) CAShapeLayer *borderShapeLayer;
-@property (nonatomic, strong) CAShapeLayer *playPauseShapeLayer;
-@property (nonatomic, strong, readonly) UIBezierPath *pauseBezierPath;
-@property (nonatomic, strong, readonly) UIBezierPath *pauseRotateBezierPath;
-@property (nonatomic, strong, readonly) UIBezierPath *playBezierPath;
-@property (nonatomic, strong, readonly) UIBezierPath *playRotateBezierPath;
-
-@end
-
-
-@implementation RSPlayPauseButton
-
-#pragma mark - Accessors
-#pragma mark Public
-
-- (void)setPaused:(BOOL)paused
-{
-    if (_paused != paused) {
-        [self setPaused:paused animated:NO];
-    }
-}
-
-
-#pragma mark Private
-
-@synthesize pauseBezierPath = _pauseBezierPath;
-
-- (UIBezierPath *)pauseBezierPath
-{
-    if (!_pauseBezierPath) {
-        _pauseBezierPath = [UIBezierPath bezierPath];
-        
-        // Subpath for 1. line
-        [_pauseBezierPath moveToPoint:p1];
-        [_pauseBezierPath addLineToPoint:p2];
-        [_pauseBezierPath addLineToPoint:p3];
-        [_pauseBezierPath addLineToPoint:p4];
-        [_pauseBezierPath closePath];
-        
-        // Subpath for 2. line
-        [_pauseBezierPath moveToPoint:p5];
-        [_pauseBezierPath addLineToPoint:p6];
-        [_pauseBezierPath addLineToPoint:p7];
-        [_pauseBezierPath addLineToPoint:p8];
-        [_pauseBezierPath closePath];
-    }
-    
-    return _pauseBezierPath;
-}
-
-
-@synthesize pauseRotateBezierPath = _pauseRotateBezierPath;
-
-- (UIBezierPath *)pauseRotateBezierPath
-{
-    if (!_pauseRotateBezierPath) {
-        _pauseRotateBezierPath = [UIBezierPath bezierPath];
-        
-        // Subpath for 1. line
-        [_pauseRotateBezierPath moveToPoint:p7];
-        [_pauseRotateBezierPath addLineToPoint:p8];
-        [_pauseRotateBezierPath addLineToPoint:p5];
-        [_pauseRotateBezierPath addLineToPoint:p6];
-        [_pauseRotateBezierPath closePath];
-        
-        // Subpath for 2. line
-        [_pauseRotateBezierPath moveToPoint:p3];
-        [_pauseRotateBezierPath addLineToPoint:p4];
-        [_pauseRotateBezierPath addLineToPoint:p1];
-        [_pauseRotateBezierPath addLineToPoint:p2];
-        [_pauseRotateBezierPath closePath];
-    }
-    
-    return _pauseRotateBezierPath;
-}
-
-
-@synthesize playBezierPath = _playBezierPath;
-
-- (UIBezierPath *)playBezierPath
-{
-    if (!_playBezierPath) {
-        _playBezierPath = [UIBezierPath bezierPath];
-        
-        const CGFloat kPauseLinesHalfSpace = floor(kPauseLinesSpace / 2);
-        const CGFloat kPauseLineHalfHeight = floor(kPauseLineHeight / 2);
-        
-        CGPoint _p1 = CGPointMake(p1.x + kPlayTriangleOffsetX, p1.y);
-        CGPoint _p2 = CGPointMake(p2.x + kPauseLinesHalfSpace, p2.y);
-        CGPoint _p3 = CGPointMake(p3.x + kPauseLinesHalfSpace, p3.y);
-        CGPoint _p4 = CGPointMake(p4.x + kPlayTriangleOffsetX, p4.y);
-        
-        CGPoint _p5 = CGPointMake(p5.x - kPauseLinesHalfSpace, p5.y);
-        CGPoint _p6 = CGPointMake(p6.x + kPlayTriangleTipOffsetX, p6.y);
-        CGPoint _p7 = CGPointMake(p7.x + kPlayTriangleTipOffsetX, p7.y);
-        CGPoint _p8 = CGPointMake(p8.x - kPauseLinesHalfSpace, p8.y);
-        
-        const CGFloat kPlayTriangleWidth = _p6.x - _p1.x;
-        
-        _p2.y += kPauseLineHalfHeight * (_p2.x - kPlayTriangleOffsetX) / kPlayTriangleWidth;
-        _p3.y -= kPauseLineHalfHeight * (_p3.x - kPlayTriangleOffsetX) / kPlayTriangleWidth;
-        
-        _p5.y += kPauseLineHalfHeight * (_p5.x - kPlayTriangleOffsetX) / kPlayTriangleWidth;
-        
-        _p6.y = kPauseLineHalfHeight;
-        _p7.y = kPauseLineHalfHeight;
-        
-        _p8.y -= kPauseLineHalfHeight * (_p8.x - kPlayTriangleOffsetX) / kPlayTriangleWidth;
-        
-        [_playBezierPath moveToPoint:_p1];
-        [_playBezierPath addLineToPoint:_p2];
-        [_playBezierPath addLineToPoint:_p3];
-        [_playBezierPath addLineToPoint:_p4];
-        [_playBezierPath closePath];
-        
-        [_playBezierPath moveToPoint:_p5];
-        [_playBezierPath addLineToPoint:_p6];
-        [_playBezierPath addLineToPoint:_p7];
-        [_playBezierPath addLineToPoint:_p8];
-        [_playBezierPath closePath];
-    }
-    
-    return _playBezierPath;
-}
-
-
-@synthesize playRotateBezierPath = _playRotateBezierPath;
-
-- (UIBezierPath *)playRotateBezierPath
-{
-    if (!_playRotateBezierPath) {
-        _playRotateBezierPath = [UIBezierPath bezierPath];
-        
-        const CGFloat kPauseLineHalfHeight = floor(kPauseLineHeight / 2);
-        
-        CGPoint _p1, _p2, _p3, _p4, _p5, _p6, _p7, _p8;
-        _p1 = _p2 = _p5 = _p6 = CGPointMake(p6.x + kPlayTriangleTipOffsetX, kPauseLineHalfHeight);
-        _p3 = _p8 = CGPointMake(p1.x + kPlayTriangleOffsetX, kPauseLineHalfHeight);
-        _p4 = CGPointMake(p1.x + kPlayTriangleOffsetX, p1.y);
-        _p7 = CGPointMake(p4.x + kPlayTriangleOffsetX, p4.y);
-        
-        [_playRotateBezierPath moveToPoint:_p1];
-        [_playRotateBezierPath addLineToPoint:_p2];
-        [_playRotateBezierPath addLineToPoint:_p3];
-        [_playRotateBezierPath addLineToPoint:_p4];
-        [_playRotateBezierPath closePath];
-        
-        [_playRotateBezierPath moveToPoint:_p5];
-        [_playRotateBezierPath addLineToPoint:_p6];
-        [_playRotateBezierPath addLineToPoint:_p7];
-        [_playRotateBezierPath addLineToPoint:_p8];
-        [_playRotateBezierPath closePath];
-    }
-    
-    return _playRotateBezierPath;
-}
-
-
-#pragma mark - Life Cycle
-
-- (id)initWithFrame:(CGRect)frame
-{
-    self = [super initWithFrame:frame];
-    if (self) {
-        _paused = YES;
-        
-        [self sizeToFit];
-    }
-    return self;
-}
-
-
-#pragma mark - UIView Method Overrides
-#pragma mark Configuring a View's Visual Appearance
-
-- (void)tintColorDidChange
-{
-    // Refresh view rendering when system calls this method with a changed tint color.
-    [self setNeedsLayout];
-}
-
-
-#pragma mark Configuring the Resizing Behavior
-
-- (CGSize)sizeThatFits:(CGSize)size
-{
-    // Ignore the current size/new size by super and instead use our default size.
-    return CGSizeMake(kSize, kSize);
-}
-
-
-#pragma mark Laying out Subviews
-
-- (void)layoutSubviews
-{
-    [super layoutSubviews];
-    
-    if (!self.playPauseShapeLayer) {
-        self.playPauseShapeLayer = [[CAShapeLayer alloc] init];
-        CGRect playPauseRect = CGRectZero;
-        playPauseRect.origin.x = floor(((self.bounds.size.width) - (kPauseLineWidth + kPauseLinesSpace + kPauseLineWidth)) / 2);
-        playPauseRect.origin.y = floor(((self.bounds.size.height) - (kPauseLineHeight)) / 2);
-        playPauseRect.size.width = kPauseLineWidth + kPauseLinesSpace + kPauseLineWidth + kPlayTriangleTipOffsetX;
-        playPauseRect.size.height = kPauseLineHeight;
-        self.playPauseShapeLayer.frame = playPauseRect;
-        UIBezierPath *path = self.isPaused ? self.playRotateBezierPath : self.pauseBezierPath;
-        self.playPauseShapeLayer.path = path.CGPath;
-        [self.layer addSublayer:self.playPauseShapeLayer];
-    }
-    self.playPauseShapeLayer.fillColor = self.tintColor.CGColor;
-}
-
-
-#pragma mark - Public Methods
-
-- (void)setPaused:(BOOL)paused animated:(BOOL)animated
-{
-    if (_paused != paused) {
-        _paused = paused;
-        
-        UIBezierPath *fromPath = nil;
-        UIBezierPath *toPath = nil;
-        if (self.animationStyle == RSPlayPauseButtonAnimationStyleSplit) {
-            fromPath = self.isPaused ? self.pauseBezierPath : self.playBezierPath;
-            toPath = self.isPaused ? self.playBezierPath : self.pauseBezierPath;
-        } else if (self.animationStyle == RSPlayPauseButtonAnimationStyleSplitAndRotate) {
-            fromPath = self.isPaused ? self.pauseBezierPath : self.playRotateBezierPath;
-            toPath = self.isPaused ? self.playRotateBezierPath : self.pauseRotateBezierPath;
-        } else {
-            // Unsupported animation style -- fall back to using default animation style's "to path" but don't animate to it.
-            toPath = self.isPaused ? self.playBezierPath : self.pauseBezierPath;
-            animated = NO;
-        }
-        
-        NSString * const kMorphAnimationKey = @"morphAnimationKey";
-        if (animated) {
-            // Morph between the two states.
-            CABasicAnimation *morphAnimation = [CABasicAnimation animationWithKeyPath:@"path"];
-            
-            CAMediaTimingFunction *timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
-            [morphAnimation setTimingFunction:timingFunction];
-            
-            // Make the new state stick.
-            [morphAnimation setRemovedOnCompletion:NO];
-            [morphAnimation setFillMode:kCAFillModeForwards];
-            
-            morphAnimation.duration = 0.3;
-            morphAnimation.fromValue = (__bridge id)fromPath.CGPath;
-            morphAnimation.toValue = (__bridge id)toPath.CGPath;
-            
-            [self.playPauseShapeLayer addAnimation:morphAnimation forKey:kMorphAnimationKey];
-        } else {
-            // Clear out potential existing morph animations.
-            [self.playPauseShapeLayer removeAnimationForKey:kMorphAnimationKey];
-            
-            // Snap to new state.
-            self.playPauseShapeLayer.path = toPath.CGPath;
-        }
-    }
-}
-
-
-@end
-
-////////------ End External ------//////
 
 @interface WCLocation : NSObject
 
@@ -375,14 +42,11 @@ CLLocationManager *locationManager; //Need to change the location of the manager
 bool walkingMode;
 CGPoint walkingVec;
 
-bool patrolMode;
-bool patrolPaused;
-WCLocation *baseLocation;
 //
 
 %hook UnityView
 
-@interface UnityView <UIAlertViewDelegate>
+@interface UnityView
 
 
 - (NSArray *)subviews;
@@ -391,18 +55,19 @@ WCLocation *baseLocation;
 - (void)layoutIfNeeded;
 - (bool)processTouches:(NSSet *)touches;
 - (void)toggleWalk;
-- (void)togglePatrol;
+- (void)onButtonTweakLoc;
+- (void)showLocationSettingPrompt:(NSString *)msg;
 @end
 
 UIButton *speedButton;
 UIButton *walkButton;
 UIButton *patrolButton;
+UIButton *tweakLocButton;
 UIButton *hideUIButton;
 
 UILabel *speedLabel;
 UILabel *walkLabel;
-UILabel *patrolLabel;
-RSPlayPauseButton *patrolPlayPauseButton;
+
 int speed = 1;
 bool hideUI = false;
 
@@ -436,42 +101,11 @@ bool locationLoopStarted;
 - (void)toggleWalk
 {
     walkingMode = !walkingMode;
-    if (walkingMode) {
-        if (patrolMode)
-            [self togglePatrol];
+    if (walkingMode) {        
         walkButton.backgroundColor = [UIColor redColor];
     } else {
         walkButton.backgroundColor = [UIColor whiteColor];
     }
-}
-
-%new
-- (void)togglePatrol
-{
-    patrolMode = !patrolMode;
-    if (patrolMode) {
-        if (walkingMode)
-            [self toggleWalk];
-        patrolButton.backgroundColor = [UIColor greenColor];
-        baseLocation = [goLoc copy];
-        [UIView animateWithDuration:0.2 animations:^{
-            patrolPlayPauseButton.frame = CGRectOffset(patrolPlayPauseButton.frame, 50, 0);
-        }];
-    } else {
-        patrolPaused = false;
-        [patrolPlayPauseButton setPaused:NO animated:YES];
-        patrolButton.backgroundColor = [UIColor whiteColor];
-        [UIView animateWithDuration:0.2 animations:^{
-            patrolPlayPauseButton.frame = CGRectOffset(patrolPlayPauseButton.frame, -50, 0);
-        }];
-    }
-}
-
-%new
-- (void)togglePatrolPause
-{
-    patrolPaused = !patrolPaused;
-    [patrolPlayPauseButton setPaused:patrolPaused animated:YES];
 }
 
 %new
@@ -482,6 +116,84 @@ bool locationLoopStarted;
     [self layoutIfNeeded];
 }
 
+%new
+- (void)onButtonTweakLoc
+{
+    UIAlertController *alertController = [UIAlertController
+                                        alertControllerWithTitle:nil
+                                        message:@"Set GPS location:"
+                                        preferredStyle:UIAlertControllerStyleAlert];
+    WCLocation *loc=[goLoc copy];
+  [alertController addTextFieldWithConfigurationHandler:^(UITextField *textField)
+   {
+     textField.placeholder=@"Latitude:";
+     textField.tag=11;
+     textField.clearButtonMode=UITextFieldViewModeWhileEditing;
+     textField.keyboardType=UIKeyboardTypeDecimalPad;
+     if (loc)
+     {
+         textField.text=[NSString stringWithFormat:@"%.8f",loc.coordinate.latitude];
+     }
+   }];
+  [alertController addTextFieldWithConfigurationHandler:^(UITextField *textField)
+   {
+     textField.placeholder=@"Longitude:";
+     textField.tag=12;
+     textField.clearButtonMode=UITextFieldViewModeWhileEditing;
+     textField.keyboardType=UIKeyboardTypeDecimalPad;
+     if (loc)
+     {
+         textField.text=[NSString stringWithFormat:@"%.8f",loc.coordinate.longitude];
+     }
+   }];
+  [alertController addAction:[UIAlertAction actionWithTitle:@"Set" style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
+    NSArray *inputs = alertController.textFields;
+    NSString *latString, *lngString;
+    for (UITextField *txtFld in inputs) {
+        if (txtFld.tag == 11)
+        {
+            latString = txtFld.text;
+        }else if (txtFld.tag == 12)
+        {
+            lngString = txtFld.text;
+        }
+    }
+    if (latString.length==0 || lngString.length==0)
+    {
+        [self showLocationSettingPrompt:@"Latitude and longitude should not be null!"];
+        return;
+    }
+    float lat=[latString floatValue];
+    float lng=[lngString floatValue];
+    if (lat<-90 || lat>90 || lng<-180 || lng>180)
+    {
+        [self showLocationSettingPrompt:@"Range of latitude or longitude is not correct!"];
+        return;
+    }
+    NSDictionary *dict=@{@"lat":@(lat), @"lng":@(lng)};
+    NSString *path=[NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject];
+    path=[path stringByAppendingPathComponent:@"zwoloc.plist"];
+    [dict writeToFile:path atomically:YES];
+    [self showLocationSettingPrompt:@"Success! You need to restart the app to take effect."];
+  }]];
+  [alertController addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+  [[[UIApplication sharedApplication].keyWindow rootViewController] presentViewController:alertController animated:YES completion:nil];
+}
+
+%new
+- (void)showLocationSettingPrompt:(NSString *)msg
+{
+    UIAlertController *alertController = [UIAlertController
+                                            alertControllerWithTitle:nil
+                                            message:msg
+                                            preferredStyle:UIAlertControllerStyleAlert];
+    UIAlertAction *action =
+  [UIAlertAction actionWithTitle:@"OK"
+                           style:UIAlertActionStyleDefault
+                         handler:nil];  
+  [alertController addAction:action];
+  [[[UIApplication sharedApplication].keyWindow rootViewController] presentViewController:alertController animated:YES completion:nil];
+}
 
 - (void)layoutSubviews
 {
@@ -526,34 +238,14 @@ bool locationLoopStarted;
         walkLabel.backgroundColor = [UIColor colorWithWhite:40/255.0 alpha:0.17];
         walkLabel.clipsToBounds = YES;
         [self addSubview:walkLabel];
-        
-        patrolButton = [[UIButton alloc] initWithFrame:CGRectMake(13, 390, 40, 40)];
-        patrolButton.backgroundColor = [UIColor whiteColor];
-        patrolButton.layer.borderColor = [UIColor whiteColor].CGColor;
-        patrolButton.layer.borderWidth = 3.0f;
-        patrolButton.layer.cornerRadius = speedButton.frame.size.width/2;
-        patrolButton.clipsToBounds = YES;
-        [patrolButton addTarget:self action:@selector(togglePatrol) forControlEvents:UIControlEventTouchUpInside];
-        
-        patrolLabel = [[UILabel alloc] initWithFrame:CGRectMake(3, 430, 60, 14)];
-        patrolLabel.textAlignment = NSTextAlignmentCenter;
-        patrolLabel.text = @"Patrol";
-        patrolLabel.textColor = [UIColor whiteColor];
-        patrolLabel.font = [UIFont systemFontOfSize:10];
-        patrolLabel.layer.cornerRadius = 7.f;
-        patrolLabel.backgroundColor = [UIColor colorWithWhite:40/255.0 alpha:0.17];
-        patrolLabel.clipsToBounds = YES;
-        [self addSubview:patrolLabel];
-        
-        patrolPlayPauseButton = [[RSPlayPauseButton alloc] initWithFrame:CGRectMake(15, 393, 40, 40)];
-        [patrolPlayPauseButton setPaused:NO animated:NO];
-        patrolPlayPauseButton.tintColor = [UIColor greenColor];
-        patrolPlayPauseButton.backgroundColor = [UIColor whiteColor];
-        patrolPlayPauseButton.layer.cornerRadius = patrolPlayPauseButton.frame.size.width/2;
-        patrolPlayPauseButton.animationStyle = RSPlayPauseButtonAnimationStyleSplitAndRotate;
-        [patrolPlayPauseButton addTarget:self action:@selector(togglePatrolPause) forControlEvents:UIControlEventTouchUpInside];
-        [self addSubview:patrolPlayPauseButton];
-        [self addSubview:patrolButton];
+
+        tweakLocButton = [[UIButton alloc] initWithFrame:CGRectMake(13, 390, 40, 40)];
+        tweakLocButton.backgroundColor = [UIColor whiteColor];
+        [tweakLocButton setTitle:@"GPS" forState:UIControlStateNormal];
+        tweakLocButton.titleLabel.font = [UIFont systemFontOfSize:10];
+        [tweakLocButton setTitleColor:[UIColor colorWithRed:36/255.0 green:71/255.0 blue:113/255.0 alpha:1.0] forState:UIControlStateNormal];
+        [tweakLocButton addTarget:self action:@selector(onButtonTweakLoc) forControlEvents:UIControlEventTouchUpInside];
+        [self addSubview:tweakLocButton];        
         
         hideUIButton = [[UIButton alloc] initWithFrame:CGRectMake(15, 25, 34, 34)];
         hideUIButton.backgroundColor = [UIColor whiteColor];
@@ -566,11 +258,9 @@ bool locationLoopStarted;
         hideUIButton.backgroundColor = hideUI ? [UIColor clearColor] : [UIColor colorWithWhite:1.0 alpha:0.85];
         speedButton.alpha = !hideUI;
         walkButton.alpha = !hideUI;
-        patrolButton.alpha = !hideUI;
-        patrolPlayPauseButton.alpha = !hideUI;
+        tweakLocButton.alpha = !hideUI;
         speedLabel.alpha = !hideUI;
         walkLabel.alpha = !hideUI;
-        patrolLabel.alpha = !hideUI;
     }];
 }
 
@@ -667,8 +357,6 @@ bool locationLoopStarted;
         return;
     locationLoopStarted = true;
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-        CFTimeInterval patrolTime = 0;
-        CFTimeInterval lastLoopTime;
         while (true) {
             CGFloat sleepTime = 0.1;
             if (locChanged) { // Set from walking mode
@@ -686,16 +374,7 @@ bool locationLoopStarted;
                 // NSLog(@"LMD: %@", [locationManager delegate]);
                 locChanged = false;
                 sleepTime = 0.8 + (arc4random_uniform(100) / 400.0);
-            } else if (patrolMode && !patrolPaused) {
-                patrolTime += CACurrentMediaTime() - lastLoopTime;
-                goLoc.coordinate = CLLocationCoordinate2DMake(baseLocation.coordinate.latitude - (sin(patrolTime * 0.03 * speed) * 0.001),
-                                                              baseLocation.coordinate.longitude + (cos(patrolTime * 0.03 * speed) * 0.001));
-                
-                //locationManager.location = goLoc;
-                [[locationManager delegate] locationManager:locationManager didUpdateLocations:@[]];
-                sleepTime = 0.8 + (arc4random_uniform(100) / 400.0);
             }
-            lastLoopTime = CACurrentMediaTime();
             [NSThread sleepForTimeInterval:sleepTime];
         }
     });
@@ -764,5 +443,9 @@ NSDate *currentTimestamp()
     } else {
         // %orig;
     }
+}
+
+- (void)locationManager:(CLLocationManager *)manager didFailWithError:(NSError *)error {
+    // block failure callback
 }
 %end
